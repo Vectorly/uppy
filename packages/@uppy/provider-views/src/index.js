@@ -75,6 +75,7 @@ module.exports = class ProviderView {
     this.toggleCheckbox = this.toggleCheckbox.bind(this)
     this.handleError = this.handleError.bind(this)
     this.handleScroll = this.handleScroll.bind(this)
+    this.listAllFiles = this.listAllFiles.bind(this)
     this.donePicking = this.donePicking.bind(this)
     this.cancelPicking = this.cancelPicking.bind(this)
     this.clearSelection = this.clearSelection.bind(this)
@@ -333,6 +334,7 @@ module.exports = class ProviderView {
    * mantains list of selected folders, which are separated from files.
    */
   addFolder (folder) {
+    console.log('Added folder', folder)
     const folderId = this.providerFileToId(folder)
     let state = this.plugin.getPluginState()
     let folders = state.selectedFolders || {}
@@ -341,14 +343,7 @@ module.exports = class ProviderView {
     }
     folders[folderId] = { loading: true, files: [] }
     this.plugin.setPluginState({ selectedFolders: folders })
-    return this.provider.list(folder.requestPath).then((res) => {
-      let files = []
-      res.items.forEach((item) => {
-        if (!item.isFolder) {
-          this.addFile(item)
-          files.push(this.providerFileToId(item))
-        }
-      })
+    return this.listAllFiles(folder.requestPath).then((files) => {
       state = this.plugin.getPluginState()
       state.selectedFolders[folderId] = { loading: false, files: files }
       this.plugin.setPluginState({ selectedFolders: folders })
@@ -491,6 +486,30 @@ module.exports = class ProviderView {
     }
   }
 
+  listAllFiles (path, files = null) {
+    files = files || []
+    let i = 0
+    return new Promise((resolve) => {
+      this.provider.list(path).then((res) => {
+        res.items.forEach((item) => {
+          if (!item.isFolder) {
+            this.addFile(item)
+            files.push(this.providerFileToId(item))
+          }
+        })
+        let moreFiles = res.nextPagePath || null
+        console.log('Next path', res.nextPagePath)
+        if (moreFiles) {
+          console.log('Getting next files', ++i)
+          return this.listAllFiles(moreFiles, files)
+        } else {
+          console.log('Got all files', files)
+          return resolve(files)
+        }
+      })
+    })
+  }
+
   donePicking () {
     const { currentSelection } = this.plugin.getPluginState()
     const promises = currentSelection.map((file) => {
@@ -573,6 +592,7 @@ module.exports = class ProviderView {
       isChecked: this.isChecked,
       toggleCheckbox: this.toggleCheckbox,
       handleScroll: this.handleScroll,
+      listAllFiles: this.listAllFiles,
       done: this.donePicking,
       cancel: this.cancelPicking,
       title: this.plugin.title,
