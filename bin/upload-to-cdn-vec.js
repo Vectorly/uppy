@@ -132,7 +132,8 @@ async function main (packageName, version) {
       Bucket: AWS_BUCKET,
       Key: key,
       ContentType: mime.lookup(filename),
-      Body: buffer
+      Body: buffer,
+      ACL: 'public-read'
     }).promise()
   }
 }
